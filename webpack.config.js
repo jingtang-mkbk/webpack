@@ -4,11 +4,14 @@ module.exports = {
   // 入口
   entry: './src/main.js',
   output: {
-    // 文件的输出路径
+    // 所有文件的输出路径
     // __dirname 当前文件的文件目录
     path: path.resolve(__dirname, 'dist'),
-    // 文件名
-    filename: 'main.js',
+    // 入口文件打包输出文件名
+    filename: 'static/js/main.js',
+    // 自动清空上次打包的内容
+    // 在打包前降path目录清空，再进行打包
+    clean: true,
   },
   // 加载器
   module: {
@@ -48,6 +51,36 @@ module.exports = {
           "stylus-loader",   // 降stylus编译成css文件 
         ], 
       },
+      {
+        // 处理图片资源
+        test: /\.(png|jpe?g|gif|webp|svg)$/,
+        type: "asset",  // 转化base64
+        parser: {
+          dataUrlCondition: {
+            // 小于10kb 转成base64
+            // 减少请求数量，但体积变大
+            maxSize: 10 * 1024,
+          }
+        },
+        generator: {
+          /** 
+           * 输出图片名称
+           * hash: hash值只取签10位
+           * ext: 文件扩展名 jpg  png gif等
+           * query: 参数
+           */  
+          filename: "static/images/[hash:10][ext][query]"
+        }
+      },
+      // 处理iconfont
+      {
+        test: /\.(ttf|woff|woff2)$/,
+        type: "asset/resource",
+        generator: {
+          // 输出名称 
+          filename: "static/media/[hash:10][ext][query]"
+        }
+      }
     ],
   },
   // 插件
