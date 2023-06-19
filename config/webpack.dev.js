@@ -1,6 +1,10 @@
 const path = require('path');
 const ESLintPlugin = require('eslint-webpack-plugin');
-const HtmlWebpackPlugin = require('html-webpack-plugin')
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const os = require('os');
+
+// cpu核数
+const threads = os.cpus().length; 
 
 module.exports = {
   // 入口
@@ -94,11 +98,26 @@ module.exports = {
             // exclude: /node_modules/, 
             // 只处理src下的文件，其他不处理
             include: path.resolve(__dirname, "../src"),
-            loader: 'babel-loader',
-            // 在babel.config.js 写或者写在options里
-            // options: {
-            //   preset: ['@babel/preset-env']
-            // }
+            use: [
+              {
+                // 开启多进程
+                loader: 'thread-loader',
+                options: {
+                  // 进程数量
+                  works: threads
+                }
+              },
+              {
+                loader: 'babel-loader',
+                options: {
+                  // 在babel.config.js 写或者写在options里
+                  // preset: ['@babel/preset-env']、
+                  cacheDirectory: true, // 开启babel缓存
+                  cacheCompression: false,  // 关闭缓存文件压缩
+                  plugins: ["@babel/plugin-transform-runtime"], // 减少代码体积
+                }
+              }
+            ]
           },
         ]
       }
@@ -110,7 +129,12 @@ module.exports = {
     new ESLintPlugin({
       context: path.resolve(__dirname, '../src'),
       // 排除检测的文件, 或者include, 选用其中一种
+      // 开启缓存
+      cache: true, 
       exclude: "node_modules",
+      cacheLocation: path.resolve(__dirname, '../node_modules/.cache/eslintcache '),
+      // 开启多进程和设置进程数量
+      threads, 
     }),
     // 处理html资源
     new HtmlWebpackPlugin({
@@ -122,7 +146,7 @@ module.exports = {
     })
   ],
   // 开发服务器: 不会输出资源，在内容中编译打包的, npx webpack server
-  devServer: {
+  devServer: { 
     host: 'localhost',  // 服务器域名
     port: '3000',       // 服务器端口
     // open: true,         // 默认false, 是否自动打开浏览器 

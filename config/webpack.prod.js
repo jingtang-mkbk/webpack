@@ -3,6 +3,12 @@ const ESLintPlugin = require('eslint-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
+const os = require('os');
+const TerserWebpackPlugin = require('terser-webpack-plugin');
+const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
+
+// cpu核数
+const threads = os.cpus().length; 
 
 function getStyleLoader(pre) {
   return [
@@ -98,11 +104,26 @@ module.exports = {
             // 不处理node_modules
             // exclude: /node_modules/,
             include: path.resolve(__dirname, "../src"),
-            loader: 'babel-loader',
-            // 在babel.config.js 写或者写在options里
-            // options: {
-            //   preset: ['@babel/preset-env']
-            // }
+            use: [
+              {
+                // 开启多进程
+                loader: 'thread-loader',
+                options: {
+                  // 进程数量
+                  works: threads
+                }
+              },
+              {
+                loader: 'babel-loader',
+                options: {
+                  // 在babel.config.js 写或者写在options里
+                  // preset: ['@babel/preset-env']、
+                  cacheDirectory: true, // 开启babel缓存
+                  cacheCompression: false,  // 关闭缓存文件压缩
+                  plugins: ["@babel/plugin-transform-runtime"], // 减少代码体积
+                }
+              }
+            ]
           },
         ]
       }
@@ -114,6 +135,11 @@ module.exports = {
     new ESLintPlugin({
       context: path.resolve(__dirname, '../src'),
       exclude: "node_modules",
+      // 开启缓存
+      cache: true, 
+      cacheLocation: path.resolve(__dirname, '../node_modules/.cache/eslintcache '),
+      // 开启多进程和设置进程数量
+      threads, 
     }),
     // 处理html资源
     new HtmlWebpackPlugin({
@@ -127,9 +153,46 @@ module.exports = {
     new MiniCssExtractPlugin({
       filename: 'static/css/main.css'
     }),
-    // css 压缩
-    new CssMinimizerPlugin(),
+    
   ],
+  optimization: {
+    minimizer: [
+      // css 压缩
+      new CssMinimizerPlugin(),
+      // 压缩js
+      new TerserWebpackPlugin({
+        // 开启多进程和设置多进程数量
+        parallel: threads,
+      }),
+      new ImageMinimizerPlugin({
+        minimizer: {
+          implementation: ImageMinimizerPlugin.imageminGenerate,
+          options: {
+            plugins: [
+              ["gifsicle", { interlaced: true }],
+              ["jpegtran", { progressive: true }],
+              ["opyipng", { optimizationLevel: 5 }],
+              [
+                "svgo", 
+                {
+                  plugins: [
+                    "preset-default",
+                    "prefixIds",
+                    {
+                      name: "sortAttrs",
+                      params: {
+                        xmlnsOrder: "alphabetical"
+                      }
+                    }
+                  ]
+                }
+              ]
+            ]
+          }
+        }
+      })
+    ]
+  },
   // 模式
   mode: 'production',
   // 报错映射关系，行和列的映射
